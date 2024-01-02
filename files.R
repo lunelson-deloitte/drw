@@ -96,5 +96,7 @@ write_to_excel <- function(
 read_excel <- function(root_directory, filename) {
     readxl::read_excel(file.path(root_directory, filename)) %>% 
         dplyr::filter(Action %in% c('Retain', 'Archive'))
+    
+    
 }
 

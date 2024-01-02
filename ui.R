@@ -26,7 +26,9 @@ PAGE_HOME <- function() {
         bslib::card(
             bslib::card_header(tags$b('2. Configure Root Actions')),
             bslib::card_body(
-                uiOutput('drw_action_widget')
+                uiOutput('drw_action_widget'),
+                uiOutput('drw_retain_name_widget'),
+                uiOutput('drw_archive_name_widget')
             ),
             bslib::card_footer(
                 tags$i('Read "link" to learn more about what each action does.')

@@ -52,6 +52,9 @@ server <- function(input, output, session) {
             drw_empty <- identical(drw_root$relative_path, character(0))
             if (!(drw_not_exist | drw_empty)) {
                 drw_root$absolute_path <- tools::file_path_as_absolute(parsed_root)
+                output$drw_root_name <- renderUI({
+                    tags$div('You selected "', tags$i(drw_root$absolute_path), '"')
+                })
                 drw_action_widget <- checkboxGroupInput(
                     'drw_action',
                     label=NULL,
@@ -61,9 +64,6 @@ server <- function(input, output, session) {
                     width='100%'
                 )
                 output$drw_action_widget <- renderUI({drw_action_widget})
-                output$drw_root_name <- renderUI({
-                    tags$div('You selected "', tags$i(drw_root$absolute_path), '"')
-                })
             } else {
                 output$drw_action_widget <- renderUI({tags$i('Waiting for directory...')})
             }
@@ -78,8 +78,30 @@ server <- function(input, output, session) {
             drw_confirm_button <- actionButton('drw_confirm', 'Confirm Request', width='100%')
             if (vctrs::vec_size(input$drw_action) > 0) {
                 output$drw_confirm_button <- renderUI(drw_confirm_button)
+                if ('retain' %in% input$drw_action) {
+                    drw_retain_name_widget <- textInput(
+                        'drw_retain_name',
+                        label='Data Retention Folder',
+                        placeholder='e.g. Data Retention'
+                    )
+                    output$drw_retain_name_widget <- renderUI({drw_retain_name_widget})
+                } else {
+                    output$drw_retain_name_widget <- NULL
+                }
+                if ('archive' %in% input$drw_action) {
+                    drw_archive_name_widget <- textInput(
+                        'drw_archive_name',
+                        label='Server Cleanup Folder',
+                        placeholder='e.g. Archive Queue'
+                    )
+                    output$drw_archive_name_widget <- renderUI({drw_archive_name_widget})
+                } else {
+                    output$drw_archive_name_widget <- NULL
+                }
             } else {
                 output$drw_confirm_button <- renderUI({tags$i('Waiting selection...')})
+                output$drw_archive_name_widget <- NULL
+                output$drw_retain_name_widget <- NULL
             }
         }
     )
