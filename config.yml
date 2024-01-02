@@ -1,0 +1,8 @@
+name: Configuration for Directory
+author: First Last
+
+data_retention_wizard:
+    ignore:
+        directory: NULL
+        filename: NULL
+        extension: [sas7bat, docx]
