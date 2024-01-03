@@ -11,10 +11,18 @@ source('modules.R')
 
 
 ui <- page_navbar(
-    title = tags$b("[ DRW ]"),
+    tags$head(tags$style(HTML( # make sidebar collapse icon more visible
+        "
+        .bslib-sidebar-layout > .collapse-toggle {
+            padding: 100px 0;
+            background-color: #cbb6f2;
+        }
+        "
+    ))),
+    title = tags$b("DRW"),
     theme = bs_theme('pulse', version=5),
     nav_panel(title='Home', PAGE_HOME()),
-    nav_panel(title='Summary', page_fluid(p('sup'))),
+    nav_panel(title='Summary', page_fluid('nice')),
     nav_spacer(),
     nav_menu(
         title='Help',
@@ -36,8 +44,9 @@ server <- function(input, output, session) {
     
     shinyFiles::shinyDirChoose(input, 'drw_root', session=session, roots=c(wd='.'))
     drw_root <- reactiveValues(relative_path=NULL, absolute_path=NULL)
+    drw_user <- reactiveValues(relative_path=NULL, absolute_path=NULL, data=NULL)
     all_files <- reactiveValues(data=NULL)
-    
+    user_files <- reactiveValues(data=NULL)
     
     observeEvent(
         ignoreInit = FALSE,
@@ -59,7 +68,7 @@ server <- function(input, output, session) {
                     'drw_action',
                     label=NULL,
                     choiceNames = c('Data Retention', 'Server Cleanup', 'Dry Run'),
-                    choiceValues = c('retain', 'archive', 'dryrun'),
+                    choiceValues = c('Retain', 'Archive', 'Ignore'),
                     inline=TRUE,
                     width='100%'
                 )
@@ -114,14 +123,6 @@ server <- function(input, output, session) {
             if (input$drw_confirm) {
                 all_files$data <- create_file_dataframe(root_directory=drw_root$absolute_path)
                 output$generate_ignore_panel <- renderUI({
-                    # bslib::navset_card_pill(
-                    #     nav_panel(title=tags$b('Directory'), renderUI(drw_ignore_directories_widget)),
-                    #     nav_panel(title=tags$b('File'), renderUI(drw_ignore_filenames_widget)),
-                    #     nav_panel(title=tags$b('Extension'), renderUI(drw_ignore_extensions_widget)),
-                    #     nav_spacer(),
-                    #     nav_panel(shiny::icon("circle-info"), shiny::markdown(IGNORE_ATTRIBUTES_INSTRUCTIONS)),
-                    #     selected=shiny::icon("circle-info")
-                    # )
                     bslib::navset_card_pill(
                         nav_panel(title=tags$b('Directory'), panelUI('drw_ignore_directories')),
                         nav_panel(title=tags$b('File'), panelUI('drw_ignore_filenames')),
@@ -138,17 +139,18 @@ server <- function(input, output, session) {
                         placeholder='Enter name for file (".xlsx" not necessary)',
                         width='100%'
                     )
-                    excel_generate_button <- actionButton('excel_generate', 'Generate File')
+                    excel_generate_button <- actionButton('excel_generate', 'Generate File', width='100%')
                     bslib::card(
                         bslib::card_header(tags$b('Generate Excel File')),
                         bslib::card_body(
                             bslib::layout_columns(
                                 excel_name_widget,
                                 excel_generate_button,
-                                col_widths=c(8, 4)
+                                uiOutput('excel_overwrite_widget'),
+                                col_widths=c(8, 4, 12)
                             )
                         ),
-                        bslib::card_footer(tags$i('Note: Name must be unique. File will be generated in root directory.')),
+                        bslib::card_footer(tags$i('Note: File will be generated in root directory.'))
                     )
                 })
                 output$excel_progress_bar <- renderUI({attendantBar("progress-bar", striped=TRUE)})
@@ -158,15 +160,73 @@ server <- function(input, output, session) {
     
     panelServer("drw_ignore_directories", inputId='drw_ignore_directories', label='Ignore Directory(s)', all_files=all_files$data, attribute='Directory')
     panelServer("drw_ignore_filenames", inputId='drw_ignore_filenames', label='Ignore File(s)', all_files=all_files$data, attribute='File')
-    panelServer("drw_ignore_extensions", inputId='drw_ignore_extesnsions', label='Ignore Extension(s)', all_files=all_files$data, attribute='Extension')
+    panelServer("drw_ignore_extensions", inputId='drw_ignore_extensions', label='Ignore Extension(s)', all_files=all_files$data, attribute='Extension')
+    
+    observeEvent(
+        ignoreInit = TRUE,
+        ignoreNULL = TRUE,
+        eventExpr = { input$excel_name },
+        handlerExpr = {
+            if (file.exists(sprintf('%s.xlsx', input$excel_name))) {
+                excel_overwrite_widget <- checkboxInput('excel_overwrite', tags$b('Overwrite?'), width='100%')
+                output$excel_overwrite_widget <- renderUI({
+                    fluidRow(
+                        column(8, tags$b('Warning:', style='color: #8f2e34; display: inline;'), 'File already exists!'),
+                        column(4, excel_overwrite_widget)
+                    )
+                })
+            } else {
+                output$excel_overwrite_widget <- NULL
+            }
+        }
+    )
     
     observeEvent(
         ignoreInit = TRUE,
         ignoreNULL = TRUE,
         eventExpr = { input$excel_generate },
         handlerExpr = {
-            if (!file.exists(input$excel_name)) {
-                # NEED: overwrite widget
+            if (!is.null(input$excel_overwrite)) {
+                if (file.exists(sprintf('%s.xlsx', input$excel_name))) {
+                    if (!input$excel_overwrite) {
+                        shiny::showModal(shiny::modalDialog(
+                            title='File Conflict Warning',
+                            tags$div(
+                                tags$b('Warning:', style='color: #8f2e34;'),
+                                shiny::markdown(OVERWRITE_PERMISSIONS_INSTRUCTIONS)
+                            ),
+                            footer=tags$div(
+                                tags$i('Please select one of the following'),
+                                actionButton('excel_overwrite_modal_close', 'Close'),
+                                actionButton('excel_overwrite_modal_continue', 'Read Existing'),
+                            )
+                        ))
+                        observeEvent(input$excel_overwrite_modal_close, {
+                            removeModal()
+                        })
+                        observeEvent(input$excel_overwrite_modal_continue, {
+                            # skip file generation, move to setting up for file read-in
+                            output$excel_overwrite_widget <- NULL
+                            removeModal()
+                            
+                            drw_user$relative_path <- sprintf('%s.xlsx', input$excel_name)
+                            drw_user$absolute_path <- tools::file_path_as_absolute(drw_user$relative_path)
+                            excel_read_button <- actionButton(
+                                'excel_read',
+                                sprintf('Read %s', drw_user$relative_path),
+                                width='100%'
+                            )
+                            output$excel_read_button <- renderUI({
+                                bslib::card(
+                                    bslib::card_header(tags$b('Read Excel File')),
+                                    bslib::card_body(excel_read_button),
+                                    bslib::card_footer(tags$i('Note: Confirm, save, and close file before reading.'))
+                                )
+                            })
+                        })
+                    }
+                }
+            } else {
                 att <- Attendant$new("progress-bar", hide_on_max = FALSE)
                 att$set(0)
                 all_files$data <- create_file_dataframe(
@@ -179,32 +239,85 @@ server <- function(input, output, session) {
                     root_directory=drw_root$absolute_path,
                     all_files_frame=all_files$data,
                     title=input$excel_name,
-                    attendant=att
+                    attendant=att,
+                    overwrite=input$excel_overwrite
                 )
                 Sys.sleep(1)
                 att$done()
-                
-                output$request_summary_panel <- renderUI({
+    
+                drw_user$relative_path <- sprintf('%s.xlsx', input$excel_name)
+                drw_user$absolute_path <- tools::file_path_as_absolute(drw_user$relative_path)
+                excel_read_button <- actionButton(
+                    'excel_read',
+                    sprintf('Read %s', drw_user$relative_path),
+                    width='100%'
+                )
+                output$excel_read_button <- renderUI({
+                    bslib::card(
+                        bslib::card_header(tags$b('Read Excel File')),
+                        bslib::card_body(excel_read_button),
+                        bslib::card_footer(tags$i('Note: Confirm, save, and close file before reading.'))
+                    )
+                })
+            }
+        }
+    )
+    
+    observeEvent(
+        ignoreInit = TRUE,
+        ignoreNULL = TRUE,
+        eventExpr = { input$excel_read },
+        handlerExpr = {
+            drw_user$data <- read_excel(filename=drw_user$absolute_path)
+            print(drw_user$data)
+            output$request_summary_panel <- renderUI({
+                if (!is.data.frame(drw_user$data)) {
+                    showModal(modalDialog(
+                        title='Excel File Read-In Error',
+                        tags$div(
+                            'The file you provided generated the following error:',
+                            drw_user$data,
+                            'Please address this error in the Excel file, then reread the file like you did previously until the error is resolved.'
+                        ),
+                        easyClose=TRUE
+                    ))
+                    shiny::wellPanel(tags$b('Process halted:', style='color: #8f2e34;'), 'Please address error in read-in.')
+                } else {
                     bslib::navset_card_pill(
-                        nav_panel(title=tags$b('Table'), p('summary table of request')),
-                        nav_panel(title=tags$b('Graph'), p('summary graph of request')),
-                        nav_panel(title=tags$b('Text (Experimental)'), p('text summarizing key features of request')),
+                        nav_panel(title=tags$b('Table'), tableOutput('excel_read_table')),
+                        nav_panel(title=tags$b('Graph'), plotOutput('excel_read_graph')),
+                        nav_panel(title=tags$b('YAML (Experimental)'), p('text summarizing key features of request')),
                         nav_spacer(),
                         nav_panel(shiny::icon("circle-info"), shiny::markdown(REQUEST_SUMMARY_INSTRUCTIONS)),
                         selected=shiny::icon("circle-info")
                     )
-                })
-                output$request_submit_panel <- renderUI({
-                    drw_submit_button <- actionButton('drw_submit', 'Submit Request')
-                    bslib::card(
-                        bslib::card_header(tags$b('Submit Request')),
-                        bslib::card_body(
-                            SUBMIT_PANEL_INSTRUCTIONS,
-                            drw_submit_button
-                        )
+                }
+            })
+            output$excel_read_table <- renderTable(frequency_table(all_files=drw_user$data, attribute='Action'))
+            output$excel_read_graph <- renderPlot(frequency_chart(all_files=drw_user$data, attribute='Action'))
+            output$request_submit_panel <- renderUI({
+                drw_submit_button <- actionButton('drw_submit', 'Submit Request')
+                bslib::card(
+                    bslib::card_header(tags$b('Submit Request')),
+                    bslib::card_body(
+                        SUBMIT_PANEL_INSTRUCTIONS,
+                        drw_submit_button
                     )
-                })
-            }
+                )
+            })
+        }
+    )
+    
+    observeEvent(
+        ignoreInit = TRUE,
+        ignoreNULL = TRUE,
+        eventExpr = { input$drw_submit },
+        handlerExpr = {
+            showModal(modalDialog(
+                title='Under Construction',
+                'This feature is currently unavailable. Thanks for participating anyway!',
+                easyClose=TRUE
+            ))
         }
     )
 }

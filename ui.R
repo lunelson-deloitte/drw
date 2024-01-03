@@ -47,13 +47,19 @@ PAGE_HOME <- function() {
         ),
         uiOutput('excel_progress_bar'),
         tags$hr(),
-        tags$h2('Confirm Request'),
-        markdown(CONFIRM_REQUEST_INSTRUCTIONS),
+        layout_columns(
+            tags$div(
+                tags$h2('Confirm Request'),
+                markdown(EXCEL_READIN_INSTRUCTIONS)
+            ),
+            uiOutput('excel_read_button'),
+            col_widths=c(7, 5)
+        ),
         layout_columns(
             uiOutput('request_summary_panel'),
             uiOutput('request_submit_panel'),
             col_widths=c(7, 5)
-        ),
+        )
     )
     
     bslib::page_fluid(

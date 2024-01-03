@@ -28,6 +28,26 @@ CONFIRM_REQUEST_INSTRUCTIONS <- "
 " %>% trimws()
 
 
+OVERWRITE_PERMISSIONS_INSTRUCTIONS <- "
+    The file you are trying to write already exists. Please do one of the following:
+    - Use the existing file by clicking 'Read Existing File'
+    - Overwrite the existing file by closing this dialog and addressing the previous prompt
+    - Provide a new name for the file by closing this dialog and updating the previous prompt
+    something something something
+" %>% trimws()
+
+
+
+EXCEL_READIN_INSTRUCTIONS <- "
+    After editing the Excel file you generated, please read it back into the
+    application. If the file is in the expected format, you can review your request
+    and proceed to the end.
+    
+    If you need to make changes, please edit the file you generated above and read
+    it back in before proceeding.
+" %>% trimws()
+
+
 REQUEST_SUMMARY_INSTRUCTIONS <- "
     The following tabs summarize the request you completed in the previous step.
     This is a chance for you to review the impact of your request before submitting

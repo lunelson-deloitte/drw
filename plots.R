@@ -31,7 +31,7 @@ frequency_chart <- function(all_files, attribute, top_n=10) {
         #     axis.title.y=element_text(face='bold'),
         #     axis.title.x=element_text(face='bold')
         # ) +
-        scale_fill_continuous(low='#a991d4', high='#593196') +
+        scale_fill_continuous(low='#cbb6f2', high='#593196') +
         theme_bw() +
         theme(legend.position='none')
 }

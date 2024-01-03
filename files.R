@@ -53,7 +53,8 @@ write_to_excel <- function(
     root_directory,
     all_files_frame,
     title,
-    attendant
+    attendant,
+    overwrite=FALSE
 ) {
     library(openxlsx)
     attendant$set(40, text='Gathering root files')
@@ -88,15 +89,31 @@ write_to_excel <- function(
         value="DONOTEDIT!$A$1:$A$3"
     )
     # warning message expected: "In sprintf("<x14:dataValidation ... one argument not used by format ..."
-    saveWorkbook(wb=wb, file=sprintf('%s.xlsx', file.path(root_directory, title)), overwrite=TRUE)
+    saveWorkbook(wb=wb, file=sprintf('%s.xlsx', file.path(root_directory, title)), overwrite=overwrite)
     Sys.sleep(1)
     attendant$set(99, text='Complete!')
 }
 
-read_excel <- function(root_directory, filename) {
-    readxl::read_excel(file.path(root_directory, filename)) %>% 
-        dplyr::filter(Action %in% c('Retain', 'Archive'))
-    
-    
+
+read_excel <- function(filename) {
+    if (!file.exists(filename)) {
+        return(sprintf('Cannot find file: %s!', filename))
+    }
+    drw_request_file <- readxl::read_excel(filename, sheet='DRW Request')
+    if (! 'Action' %in% colnames(drw_request_file)) {
+        return('Invalid File - do not edit column names! Requires "Action" column!')
+    }
+    drw_request_file <- drw_request_file %>% dplyr::filter(Action %in% c('Retain', 'Archive', 'Ignore'))
+    if (nrow(drw_request_file) == nrow(drw_request_file %>% filter(Action == 'Ignore'))) {
+        return('File contains no actionable items!')
+    }
+    return(drw_request_file)
 }
 
+
+move_files <- function(
+        drw_request_data,
+        drw_actions,
+        drw_archive_name=NULL,
+        drw_retain_name=NULL) {
+}
