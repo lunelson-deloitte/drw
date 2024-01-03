@@ -1,7 +1,7 @@
 get_files <- function(root_directory, attribute=NULL) {
     all_files <- list.files(
         root_directory,
-        full.names=TRUE,
+        full.names=FALSE,
         recursive=TRUE,
         pattern='^[^~]' # ignore opened files
     )
@@ -104,7 +104,7 @@ read_excel <- function(filename) {
         return('Invalid File - do not edit column names! Requires "Action" column!')
     }
     drw_request_file <- drw_request_file %>% dplyr::filter(Action %in% c('Retain', 'Archive', 'Ignore'))
-    if (nrow(drw_request_file) == nrow(drw_request_file %>% filter(Action == 'Ignore'))) {
+    if (nrow(drw_request_file) == nrow(drw_request_file %>% dplyr::filter(Action == 'Ignore'))) {
         return('File contains no actionable items!')
     }
     return(drw_request_file)

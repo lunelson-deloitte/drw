@@ -87,7 +87,7 @@ server <- function(input, output, session) {
             drw_confirm_button <- actionButton('drw_confirm', 'Confirm Request', width='100%')
             if (vctrs::vec_size(input$drw_action) > 0) {
                 output$drw_confirm_button <- renderUI(drw_confirm_button)
-                if ('retain' %in% input$drw_action) {
+                if ('Retain' %in% input$drw_action) {
                     drw_retain_name_widget <- textInput(
                         'drw_retain_name',
                         label='Data Retention Folder',
@@ -97,7 +97,7 @@ server <- function(input, output, session) {
                 } else {
                     output$drw_retain_name_widget <- NULL
                 }
-                if ('archive' %in% input$drw_action) {
+                if ('Archive' %in% input$drw_action) {
                     drw_archive_name_widget <- textInput(
                         'drw_archive_name',
                         label='Server Cleanup Folder',
@@ -269,7 +269,6 @@ server <- function(input, output, session) {
         eventExpr = { input$excel_read },
         handlerExpr = {
             drw_user$data <- read_excel(filename=drw_user$absolute_path)
-            print(drw_user$data)
             output$request_summary_panel <- renderUI({
                 if (!is.data.frame(drw_user$data)) {
                     showModal(modalDialog(
@@ -283,18 +282,19 @@ server <- function(input, output, session) {
                     ))
                     shiny::wellPanel(tags$b('Process halted:', style='color: #8f2e34;'), 'Please address error in read-in.')
                 } else {
+                    
                     bslib::navset_card_pill(
-                        nav_panel(title=tags$b('Table'), tableOutput('excel_read_table')),
-                        nav_panel(title=tags$b('Graph'), plotOutput('excel_read_graph')),
-                        nav_panel(title=tags$b('YAML (Experimental)'), p('text summarizing key features of request')),
+                        nav_panel(title=tags$b('Directory'), panelUI('drw_actionable_directories')),
+                        nav_panel(title=tags$b('Action'), panelUI('drw_actionable_filenames')),
+                        nav_panel(title=tags$b('Extension'), panelUI('drw_actionable_extensions')),
                         nav_spacer(),
-                        nav_panel(shiny::icon("circle-info"), shiny::markdown(REQUEST_SUMMARY_INSTRUCTIONS)),
+                        nav_panel(shiny::icon("circle-info"), shiny::markdown(IGNORE_ATTRIBUTES_INSTRUCTIONS)),
                         selected=shiny::icon("circle-info")
                     )
                 }
             })
-            output$excel_read_table <- renderTable(frequency_table(all_files=drw_user$data, attribute='Action'))
-            output$excel_read_graph <- renderPlot(frequency_chart(all_files=drw_user$data, attribute='Action'))
+            # output$excel_read_table <- renderTable(frequency_table(all_files=drw_user$data, attribute='Action', include_labels=TRUE))
+            # output$excel_read_graph <- renderPlot(frequency_chart(all_files=drw_user$data, attribute='Action'))
             output$request_submit_panel <- renderUI({
                 drw_submit_button <- actionButton('drw_submit', 'Submit Request')
                 bslib::card(
@@ -307,6 +307,10 @@ server <- function(input, output, session) {
             })
         }
     )
+    
+    panelServer("drw_actionable_directories", inputId='drw_actionable_directories', label='Filter Directory(s)', all_files=drw_user$data, attribute=c('Directory', 'Action'))
+    panelServer("drw_actionable_filenames", inputId='drw_actionable_filenames', label='Filter Action(s)', all_files=drw_user$data, attribute='Action')
+    panelServer("drw_actionable_extensions", inputId='drw_actionable_extensions', label='Filter Extension(s)', all_files=drw_user$data, attribute=c('Extension', 'Action'))
     
     observeEvent(
         ignoreInit = TRUE,

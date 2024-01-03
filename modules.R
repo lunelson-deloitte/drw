@@ -22,7 +22,7 @@ panelServer <- function(id, inputId, label, all_files, attribute) {
             )
         })
         output$table <- renderTable({
-            frequency_table(all_files=all_files, attribute=attribute)
+            frequency_table(all_files=all_files, attribute=attribute, include_labels=TRUE)
         })
         output$plot <- renderPlot({
             frequency_chart(all_files=all_files, attribute=attribute)
